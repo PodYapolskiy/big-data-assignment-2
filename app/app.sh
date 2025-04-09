@@ -5,11 +5,16 @@ service ssh restart
 # Starting the services
 bash start-services.sh
 
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+# source $HOME/.local/bin/env
+# uv venv --python 3.12
+
 # Creating a virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
 # Install any packages
+# uv ...
 pip install -r requirements.txt  
 
 # Package the virtual env.
