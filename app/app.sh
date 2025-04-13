@@ -9,16 +9,19 @@ bash start-services.sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 
-# Creating a virtual environment
-uv venv --python 3.12
-# python3 -m venv .venv
+# Creating and acitvating virtual environment
+if [ ! -d .venv ]; then
+    uv venv --python 3.12  # python3 -m venv .venv
+fi
 source .venv/bin/activate
 
 # Install any packages
 uv pip install -r requirements.txt
 
-# Package the virtual env.
-uvx venv-pack -o .venv.tar.gz
+# Package the virtual env if doesn't exist
+if [ ! -f .venv.tar.gz ]; then
+    uvx venv-pack -o .venv.tar.gz --compress-level 1
+fi
 
 # Collect data
 # bash prepare_data.sh
