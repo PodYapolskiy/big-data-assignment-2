@@ -1,11 +1,73 @@
 import re
 import sys
+import unicodedata
+import pymorphy2
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
+
+# Initialize stop words and lemmatizer
+stop_words = set(stopwords.words('english')) | set(stopwords.words('russian'))
+lemmatizer = WordNetLemmatizer()
+morph = pymorphy2.MorphAnalyzer()
+
+
+def normalize_text(text):
+    """
+    Normalizes unicode text by decomposing characters (NFKD)
+    and removing diacritical marks.
+    E.g. 'español' becomes 'espanol'.
+    """
+    normalized = unicodedata.normalize('NFKD', text)
+    # Filter out diacritical marks (combining characters)
+    normalized = "".join([c for c in normalized if not unicodedata.combining(c)])
+    return normalized
+
+
+def lemmatize_word(word):
+    """
+    Lemmatises a word using a different backend depending on its script.
+    If the word contains any Cyrillic letters, use pymorphy2;
+    otherwise assume a Latin-script word and use spaCy.
+    """
+    if re.search(r'[\u0400-\u04FF]', word):
+        # Use pymorphy2 for Cyrillic words (e.g., Russian)
+        parsed = morph.parse(word)
+        if parsed:
+            return parsed[0].normal_form
+        else:
+            return word
+    else:
+        return lemmatizer.lemmatize(word)
 
 
 def tokenize(text: str):
-    # Basic tokenization: lowercase and split on non-alphanumeric characters.
-    tokens = re.split(r"\W+", text.lower())
-    return [token for token in tokens if token]
+    text = text.strip().lower()
+    text = normalize_text(text)  # Normalize text (e.g., "español" becomes "espanol")
+
+    # Define a regex pattern to match tokens containing only Latin or Cyrillic letters.
+    valid_letters_pattern = re.compile(r'^[A-Za-z\u0400-\u04FF]+$')
+
+    tokens = []
+    for token in text.split(" "):
+        token = re.sub(r'[^\w]', '', token)  # remove punctuation from toke
+
+        if not token or token in stop_words:
+            continue
+        
+        if token.isdigit():  # skip digits
+            # tokens.append(token)
+            continue
+        
+        if valid_letters_pattern.fullmatch(token):
+            token_lower = token.lower()
+            lemma = lemmatize_word(token_lower)
+            tokens.append(lemma)
+
+    return tokens
 
 
 def process_line(line: str):
@@ -40,3 +102,4 @@ for line in sys.stdin:
         process_line(line)
     except Exception as e:
         sys.stderr.write(f"{e}")
+        sys.exit(1)

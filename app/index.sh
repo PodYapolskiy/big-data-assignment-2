@@ -27,7 +27,7 @@ echo "Starting Hadoop MapReduce job with:"
 mapred streaming \
     -files mapreduce/mapper1.py,mapreduce/reducer1.py \
     -archives ".venv.tar.gz#.venv" \
-    -mapper "python3 mapper1.py" \
+    -mapper ".venv/bin/python3 mapper1.py" \
     -reducer ".venv/bin/python3 reducer1.py" \
     -input "$INPUT_PATH" \
     -output "$OUTPUT_DIR" \
