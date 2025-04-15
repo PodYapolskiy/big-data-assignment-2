@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS doc_stats (
 #####################
 # INSERTS / UPDATES #
 #####################
-inverted_index_create_statement ="""
+inverted_index_create_statement = """
 CREATE TABLE IF NOT EXISTS inverted_index (
     term text,
     doc_id int,
@@ -69,9 +69,15 @@ except Exception as e:
 #####################
 # INSERTS / UDPATES #
 #####################
-doc_stats_insert_statement = session.prepare("INSERT INTO doc_stats (doc_id, doc_title, doc_length) VALUES (?, ?, ?)")
-inverted_index_insert_statement = session.prepare("INSERT INTO inverted_index (term, doc_id, tf) VALUES (?, ?, ?)")
-vocabulary_update_statement = session.prepare("UPDATE vocabulary SET df = df + 1 WHERE term = ?")
+doc_stats_insert_statement = session.prepare(
+    "INSERT INTO doc_stats (doc_id, doc_title, doc_length) VALUES (?, ?, ?)"
+)
+inverted_index_insert_statement = session.prepare(
+    "INSERT INTO inverted_index (term, doc_id, tf) VALUES (?, ?, ?)"
+)
+vocabulary_update_statement = session.prepare(
+    "UPDATE vocabulary SET df = df + 1 WHERE term = ?"
+)
 
 for line in sys.stdin:  # Process each input line from mapper output.
     line = line.strip()

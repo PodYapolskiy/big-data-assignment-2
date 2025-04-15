@@ -9,14 +9,13 @@ CREATE TABLE IF NOT EXISTS doc_stats (
     PRIMARY KEY (doc_id)
 );
 
-DROP TABLE IF EXISTS inverted_index;
+
 CREATE TABLE IF NOT EXISTS inverted_index (
     term text,
     doc_id int,
     tf int,
     PRIMARY KEY (term, doc_id)
 );
-// WITH CLUSTERING ORDER BY (term ASC);
 
 CREATE TABLE IF NOT EXISTS vocabulary (
     term text,
