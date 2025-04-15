@@ -14,7 +14,7 @@ unset PYSPARK_PYTHON
 hdfs dfs -put -f b.parquet / && \
     spark-submit prepare_data.py && \
     echo "Putting data to hdfs" && \
-    hdfs dfs -put data / && \
-    hdfs dfs -ls /data && \
+    # hdfs dfs -put data / && \
+    # hdfs dfs -ls /data && \
     hdfs dfs -ls /index/data && \
     echo "done data preparation!"

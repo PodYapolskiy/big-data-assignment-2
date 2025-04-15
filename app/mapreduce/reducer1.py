@@ -1,60 +1,100 @@
-#!/app/.venv/bin/python3
-# -*-coding:utf-8 -*
 import sys
 from cassandra.cluster import Cluster
+from cassandra.auth import PlainTextAuthProvider
+
+
+# // WITH CLUSTERING ORDER BY (term ASC);
+# // CREATE INDEX IF NOT EXISTS inverted_index_doc_id_idx ON inverted_index(doc_id);
+# // CREATE INDEX IF NOT EXISTS vocabulary_term_idx ON vocabulary(term);
+
+############
+# KEYSPACE #
+############
+search_create_statement = """
+CREATE KEYSPACE IF NOT EXISTS search WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
+"""
+
+##########
+# TABLES #
+##########
+doc_stats_create_statement = """
+CREATE TABLE IF NOT EXISTS doc_stats (
+    doc_id int,
+    doc_title text,
+    doc_length int,
+    PRIMARY KEY (doc_id)
+);
+"""
+
+#####################
+# INSERTS / UPDATES #
+#####################
+inverted_index_create_statement ="""
+CREATE TABLE IF NOT EXISTS inverted_index (
+    term text,
+    doc_id int,
+    tf int,
+    PRIMARY KEY (term, doc_id)
+);
+"""
+
+vocabulary_create_statement = """
+CREATE TABLE IF NOT EXISTS vocabulary (
+    term text,
+    df counter,
+    PRIMARY KEY (term)
+);
+"""
 
 # Connect to Cassandra (each reducer node does its own connection)
 try:
-    cluster = Cluster(["cassandra-server"])
+    cluster = Cluster(
+        ["host.docker.internal"],
+        port=9042,
+        auth_provider=PlainTextAuthProvider(username="cassandra", password="cassandra"),
+    )
+    # connect and create keyspace if not exists
+    session = cluster.connect()
+    session.execute(search_create_statement)
+
+    # create table if not exist
     session = cluster.connect("search")
+    session.execute(doc_stats_create_statement)
+    session.execute(inverted_index_create_statement)
+    session.execute(vocabulary_create_statement)
 except Exception as e:
-    sys.stderr.write("Error connecting to Cassandra: {}\n".format(e))
+    sys.stderr.write(f"Error connecting to Cassandra: {e}\n")
     sys.exit(1)
 
-# Prepare the CQL statements
-stmt_doc = session.prepare(
-    "INSERT INTO doc_stats (doc_id, doc_title, doc_length) VALUES (?, ?, ?)"
-)
-stmt_index = session.prepare(
-    "INSERT INTO inverted_index (term, doc_id, tf) VALUES (?, ?, ?)"
-)
-stmt_vocab_init = session.prepare("UPDATE vocabulary SET df = df + 0 WHERE term = %s")
-stmt_vocab_update = session.prepare(
-    "UPDATE vocabulary SET df = df + %s WHERE term = %s"
-)
+#####################
+# INSERTS / UDPATES #
+#####################
+doc_stats_insert_statement = session.prepare("INSERT INTO doc_stats (doc_id, doc_title, doc_length) VALUES (?, ?, ?)")
+inverted_index_insert_statement = session.prepare("INSERT INTO inverted_index (term, doc_id, tf) VALUES (?, ?, ?)")
+vocabulary_init_statement = session.prepare("UPDATE vocabulary SET df = df + 0 WHERE term = ?")
+vocabulary_update_statement = session.prepare("UPDATE vocabulary SET df = df + 1 WHERE term = ?")
 
 
-def insert_doc_stats(doc_id: int, doc_title: str, doc_length: int) -> None:
+def insert_doc_stats(doc_id: int, doc_title: str, doc_length: int):
     try:
-        session.execute(stmt_doc, (doc_id, doc_title, doc_length))
+        session.execute(doc_stats_insert_statement, (doc_id, doc_title, doc_length))
     except Exception as e:
         sys.stderr.write(f"Error inserting doc_stats for {doc_id}:\n{e}\n")
 
 
-def insert_term_docs_info(term: str, doc_id: str, tf: int) -> None:
+def insert_term_docs_info(term: str, doc_id: str, tf: int):
     try:
-        session.execute(stmt_index, (term, doc_id, tf))
+        session.execute(inverted_index_insert_statement, (term, doc_id, tf))
     except Exception as e:
         sys.stderr.write(
             f"Error inserting inverted_index for term {term} doc {doc_id}: {e}\n"
         )
 
-    # Insert vocabulary info for the term (document frequency)
-    # df = len(postings)
-    # try:
-    #     session.execute(stmt_vocab, (term, df))
-    # except Exception as e:
-    #     sys.stderr.write("Error inserting vocabulary for term {}: {}\n".format(term, e))
-
-
 def main():
     initialized_terms = set()
 
-    # Read input from file produced by mapper
-    temp_file = open("/tmp/index", "r")
-
     # Process each input line from mapper output.
-    for line in temp_file:
+    for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
@@ -75,10 +115,11 @@ def main():
                 insert_doc_stats(doc_id, doc_title, doc_length)
             except Exception as e:
                 sys.stderr.write("Error processing DOC record: {}\n".format(e))
+                continue
 
         # facing term mapping output TERM|term|doc_id<tab>tf
         elif key.startswith("TERM|"):
-            parts = key.split("|")
+            parts = key.split("|", 2)
             if len(parts) != 3:
                 continue
 
@@ -86,13 +127,14 @@ def main():
             try:
                 doc_id = int(doc_id)
                 tf = int(value)
-            except ValueError:
+            except ValueError as e:
+                sys.stderr.write(f"{e}")
                 continue
 
             # Initialize the term in the vocabulary.
             if term not in initialized_terms:
                 try:
-                    session.execute(stmt_vocab_init, (term))
+                    # session.execute(vocabulary_init_statement, (term,))
                     initialized_terms.add(term)
                 except Exception as e:
                     sys.stderr.write(
@@ -102,19 +144,18 @@ def main():
 
             # update the document frequency for the term
             try:
-                session.execute(stmt_vocab_update, (tf, term))
+                session.execute(vocabulary_update_statement, (term,))
             except Exception as e:
                 sys.stderr.write(f"Error updating vocabulary for term {term}: {e}\n")
                 continue
 
             # insert term doc info
             try:
-                session.execute(stmt_index, (term, doc_id, tf))
+                session.execute(inverted_index_insert_statement, (term, doc_id, tf))
             except Exception as e:
                 sys.stderr.write(
                     f"Error processing TERM record for term {term} in doc {doc_id}: {e}\n"
                 )
 
 
-if __name__ == "__main__":
-    main()
+main()

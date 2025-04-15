@@ -25,13 +25,12 @@ hdfs dfs -rm -r -f $OUTPUT_DIR  # Remove any previous output directory
 
 echo "Starting Hadoop MapReduce job with:"
 mapred streaming \
-    -files "/app/mapreduce/mapper1.py,/app/mapreduce/reducer1.py" \
-    -mapper "/app/.venv/bin/python3 mapreduce/mapper1.py" \
-    -reducer "/app/.venv/bin/python3 mapreduce/reducer1.py" \
-    -input "$INPUT_PATH/*" \
+    -files mapreduce/mapper1.py,mapreduce/reducer1.py \
+    -archives ".venv.tar.gz#.venv" \
+    -mapper "python3 mapper1.py" \
+    -reducer ".venv/bin/python3 reducer1.py" \
+    -input "$INPUT_PATH" \
     -output "$OUTPUT_DIR" \
-    # -D mapred.map.tasks=1 \
-    # -D mapred.reduce.tasks=0 \
 
 # Check the job status and print a message
 if [ $? -eq 0 ]; then
