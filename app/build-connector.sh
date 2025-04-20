@@ -1,6 +1,6 @@
 #!/bin/bash
 
-apt install git
+apt install git -y
 git clone https://github.com/datastax/spark-cassandra-connector.git
 cd spark-cassandra-connector
 ./sbt/sbt assembly
