@@ -2,6 +2,10 @@
 service ssh restart 
 bash start-services.sh
 
+# build cassandra-spark connector
+bash build-connector.sh
+
+# ensure valid python venv
 if [ -d .venv ]; then
     rm -rf .venv
 fi
