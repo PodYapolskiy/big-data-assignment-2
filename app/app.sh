@@ -23,4 +23,4 @@ bash prepare_data.sh
 # bash index.sh data/sample.txt
 
 # Run the ranker
-# bash search.sh "this is a query!"
+bash search.sh "Armstrong moon landing"

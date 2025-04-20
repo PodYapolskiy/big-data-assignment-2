@@ -14,6 +14,5 @@ spark-submit  \
     --archives /app/.venv.tar.gz#.venv \
     --jars /app/spark-cassandra-connector.jar \
     --packages com.github.jnr:jnr-posix:3.1.15 \
-    query.py $1
-    # --packages com.datastax.spark:spark-cassandra-connector-assembly_2.12:3.5.0 \
-    # --master yarn \
+    --master yarn \
+    query.py "$1"
